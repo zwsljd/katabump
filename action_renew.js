@@ -9,35 +9,62 @@ const http = require('http');
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
 const TG_CHAT_ID = process.env.TG_CHAT_ID;
 
+// async function sendTelegramMessage(message, imagePath = null) {
+//     if (!TG_BOT_TOKEN || !TG_CHAT_ID) return;
+
+//     // 1. 发送文字消息
+//     try {
+//         const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
+//         await axios.post(url, {
+//             chat_id: TG_CHAT_ID,
+//             text: message,
+//             parse_mode: 'Markdown'
+//         });
+//         console.log('[Telegram] Message sent.');
+//     } catch (e) {
+//         console.error('[Telegram] Failed to send message:', e.message);
+//     }
+
+//     // 2. 发送图片 (如果有)
+//     if (imagePath && fs.existsSync(imagePath)) {
+//         console.log('[Telegram] Sending photo...');
+//         // 使用 curl 发送图片，避免引入额外的 multipart 依赖
+//         // 注意：Windows 本地测试可能需要环境支持 curl，GitHub Actions (Ubuntu) 默认支持
+//         const cmd = `curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto" -F chat_id="${TG_CHAT_ID}" -F photo="@${imagePath}"`;
+//         await new Promise(resolve => {
+//             exec(cmd, (err) => {
+//                 if (err) console.error('[Telegram] Failed to send photo via curl:', err.message);
+//                 else console.log('[Telegram] Photo sent.');
+//                 resolve();
+//             });
+//         });
+//     }
+// }
+const FS_BOT_ID = process.env.FS_BOT_ID;
 async function sendTelegramMessage(message, imagePath = null) {
-    if (!TG_BOT_TOKEN || !TG_CHAT_ID) return;
+    if (!FS_BOT_ID) return;
 
-    // 1. 发送文字消息
+    const BASE_HOOK_URL = "https://open.feishu.cn/open-apis/bot/v2/hook/";
+    if (!FS_BOT_ID) return;
+    const FEISHU_WEBHOOK = BASE_HOOK_URL + FS_BOT_ID;
+
     try {
-        const url = `https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`;
-        await axios.post(url, {
-            chat_id: TG_CHAT_ID,
-            text: message,
-            parse_mode: 'Markdown'
-        });
-        console.log('[Telegram] Message sent.');
+        // 移除Markdown的*加粗符号，飞书自定义机器人只支持普通文本
+        const plainText = message.replace(/\*/g, '');
+        const payload = {
+            msg_type: "text",
+            content: {
+                text: plainText
+            }
+        };
+        await axios.post(FEISHU_WEBHOOK, payload);
+        console.log('[Feishu] Message sent.');
     } catch (e) {
-        console.error('[Telegram] Failed to send message:', e.message);
+        console.error('[Feishu] Failed to send message:', e.message);
     }
-
-    // 2. 发送图片 (如果有)
+    // 图片路径参数保留，但是不发送图片；截图依旧保存到screenshots目录，上传到Artifacts
     if (imagePath && fs.existsSync(imagePath)) {
-        console.log('[Telegram] Sending photo...');
-        // 使用 curl 发送图片，避免引入额外的 multipart 依赖
-        // 注意：Windows 本地测试可能需要环境支持 curl，GitHub Actions (Ubuntu) 默认支持
-        const cmd = `curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendPhoto" -F chat_id="${TG_CHAT_ID}" -F photo="@${imagePath}"`;
-        await new Promise(resolve => {
-            exec(cmd, (err) => {
-                if (err) console.error('[Telegram] Failed to send photo via curl:', err.message);
-                else console.log('[Telegram] Photo sent.');
-                resolve();
-            });
-        });
+        console.log('[Feishu] Skip image upload, screenshot saved to artifacts.');
     }
 }
 
